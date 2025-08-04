@@ -1,0 +1,10 @@
+# Ignore all env files
+.env
+*.env
+
+# Ignore Streamlit secrets
+.streamlit/secrets.toml
+
+# Python cache files
+__pycache__/
+*.py[cod]
