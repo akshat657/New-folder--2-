@@ -13,7 +13,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 # Load API Key from .env file
 from dotenv import load_dotenv
 load_dotenv() 
-print("Loaded GOOGLE_API_KEY:", os.getenv("GOOGLE_API_KEY"))
+
 def get_pdf_text(pdf_docs):
     text = ""
     for pdf in pdf_docs:
