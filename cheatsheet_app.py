@@ -36,7 +36,7 @@ def extract_pdf_text(pdf_files: List[UploadedFile]) -> str:
 
 def summarize_cheatsheet(subject: str, content: str) -> str:
     template = f"""
-You are an expert tutor creating a **cheat sheet** for quick revision on **{subject}**.
+You are an expert tutor creating a *cheat sheet* for quick revision on *{subject}*.
 
 Use the content below to create a concise, easy-to-read cheat sheet. {SUBJECT_CATEGORIES.get(subject, "")}
 
@@ -109,7 +109,7 @@ def run_app():
         "Subject for Cheat Sheet:", list(SUBJECT_CATEGORIES.keys()), index=0
     )
     pdf_docs = st.file_uploader(
-        "Upload lecture PDF(s) — max 7 pages each",
+        "Upload lecture PDF(s) — max 7 pages each",
         type="pdf",
         accept_multiple_files=True
     )
@@ -147,7 +147,7 @@ def run_app():
             cheatsheet = summarize_cheatsheet(subject, text_content)
 
             if not cheatsheet.strip():
-                st.warning("⚠️ Cheat sheet could not be generated: try after some time")
+                st.warning("⚠ Cheat sheet could not be generated: try after some time")
                 return
 
             st.success(f"✅ Cheat sheet generated using {source_label}:")
@@ -163,7 +163,7 @@ def run_app():
                 st.markdown(part2)
 
             st.markdown("---")
-            st.markdown("✅ *(You can copy this or print directly.)*")
+            st.markdown("✅ (You can copy this or print directly.)")
 
             pdf_file = generate_pdf(cheatsheet)
             st.download_button(
@@ -173,5 +173,5 @@ def run_app():
                 mime="application/pdf"
             )
 
-if __name__ == "__main__":
+if __name__ == "_main_":
     run_app()
