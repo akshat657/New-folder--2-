@@ -1,5 +1,3 @@
-# yt_summary_app.py
-
 import os
 import re
 import streamlit as st
@@ -13,7 +11,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.prompts import PromptTemplate
 from langchain.chains.summarize import load_summarize_chain
 from langchain_core.documents.base import Document
-from langchain_groq import ChatGroq  # ✅ Latest LangChain‑Groq integration
+from langchain_groq import ChatGroq
+from groq import RateLimitError  # ✅ Added for error handling
 
 # — Load Groq API key from .env
 load_dotenv()
@@ -28,17 +27,16 @@ map_prompt = PromptTemplate(
         "Summarize the key points as bullet points (≤250 words)."
     ),
 )
+
 combine_prompt = PromptTemplate(
     input_variables=["text"],
-    template=(
-        "📚 Now combine all these bullet lists into one coherent summary:\n\n{text}"
-    ),
+    template="📚 Now combine all these bullet lists into one coherent summary:\n\n{text}"
 )
 
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",
     temperature=0.25,
-    max_retries=2  # Optional, but helpful
+    max_retries=2
 )
 
 summarizer = load_summarize_chain(
@@ -88,8 +86,17 @@ def extract_transcript(url: str, languages: List[str] = ["en", "hi"]) -> str:
 def summarize_transcript(transcript: str) -> str:
     splitter = RecursiveCharacterTextSplitter(chunk_size=4000, chunk_overlap=400)
     docs = [Document(page_content=chunk) for chunk in splitter.split_text(transcript)]
-    result = summarizer.invoke({"input_documents": docs})
-    return result["output_text"].strip()
+    try:
+        result = summarizer.invoke({"input_documents": docs})
+        return result["output_text"].strip()
+    except RateLimitError as e:
+        st.error("❌ Rate limit exceeded: You've used up today's 100,000 token quota for Groq. Please try again later.")
+        print("Groq RateLimitError:", e)
+        return ""
+    except Exception as e:
+        st.error(f"Unexpected error during summarization: {e}")
+        print("Unexpected summarization error:", e)
+        return ""
 
 def run_app():
     st.set_page_config(page_title="YouTube → Summary (LLaMA/Groq)", layout="centered")

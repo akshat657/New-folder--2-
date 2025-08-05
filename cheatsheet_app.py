@@ -11,7 +11,7 @@ from langchain_groq import ChatGroq  # ✅ Changed from GoogleGenerativeAI
 import re
 load_dotenv()  # Load GROQ_API_KEY from .env
 
-LLM_MODEL = "llama3-70b-8192"
+LLM_MODEL = "llama-3.3-70b-versatile"
 llm = ChatGroq(model=LLM_MODEL, temperature=0.25)  # ✅ Use Groq LLaMA 3
 
 SUBJECT_CATEGORIES = {
@@ -51,20 +51,29 @@ Content:
 
 Cheat sheet (begin below):
 """
-    response = llm.invoke(template)
-    # Step‑1: extract the clean text
-    # AIMessage.content holds only the text, response_metadata is separate
-    text = getattr(response, "content", str(response))
+    try:
+        response = llm.invoke(template)
 
-    # Step‑2: unescape literal \n and \t if they appear
-    text = text.replace("\\n", "\n").replace("\\t", "    ")
+        # Step‑1: extract the clean text
+        text = getattr(response, "content", str(response))
 
-    # Step‑3: strip any trailing metadata block
-    text = re.sub(r"\s*additional_kwargs=.*$", "", text)
-    text = re.sub(r"\s*response_metadata=.*$", "", text)
+        # Step‑2: unescape literal \n and \t if they appear
+        text = text.replace("\\n", "\n").replace("\\t", "    ")
 
-    return text.strip()
+        # Step‑3: strip any trailing metadata block
+        text = re.sub(r"\s*additional_kwargs=.*$", "", text)
+        text = re.sub(r"\s*response_metadata=.*$", "", text)
 
+        return text.strip()
+
+    except Exception as e:
+        error_message = str(e)
+
+        if "rate_limit_exceeded" in error_message or "Error code: 429" in error_message:
+            st.error("🚫 You've hit the daily token limit for Groq (100,000 tokens/day on free tier). Please try again later or upgrade your plan.")
+        else:
+            st.error(f"❌ Unexpected error: {error_message}")
+        return ""
 def generate_pdf(text: str) -> BytesIO:
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -84,10 +93,9 @@ def generate_pdf(text: str) -> BytesIO:
     c.save()
     buffer.seek(0)
     return buffer
-
 def run_app():
     st.set_page_config(page_title="Cheat Sheet Generator", layout="centered")
-    st.title("\U0001F4C4 Cheat Sheet Generator (PDF or Topic)")
+    st.title("🧾 Cheat Sheet Generator (PDF or Topic)")
 
     st.markdown("""
         <style>
@@ -97,14 +105,33 @@ def run_app():
         </style>
     """, unsafe_allow_html=True)
 
-    subject = st.selectbox("Subject for Cheat Sheet:", list(SUBJECT_CATEGORIES.keys()), index=0)
-    pdf_docs = st.file_uploader("Upload lecture PDF(s) (optional)", type="pdf", accept_multiple_files=True)
-    topic = st.text_input("Enter a topic or keywords for cheat sheet generation")
+    subject = st.selectbox(
+        "Subject for Cheat Sheet:", list(SUBJECT_CATEGORIES.keys()), index=0
+    )
+    pdf_docs = st.file_uploader(
+        "Upload lecture PDF(s) — max 7 pages each",
+        type="pdf",
+        accept_multiple_files=True
+    )
+    topic = st.text_input(
+        "Enter a topic or keywords for cheat sheet generation"
+    )
 
     if st.button("Generate Cheat Sheet"):
         with st.spinner("Creating cheat sheet…"):
             text_content = ""
+            source_label = ""
+
             if pdf_docs:
+                for upload in pdf_docs:
+                    reader = PdfReader(upload)
+                    pages = len(reader.pages)
+                    if pages > 8:
+                        st.error(
+                            f"Your uploaded file “{upload.name}” has {pages} pages. "
+                            "Only up to 8 pages are allowed per file."
+                        )
+                        return
                 text_content = extract_pdf_text(pdf_docs)
                 if not text_content.strip():
                     st.error("Could not extract any text from uploaded PDFs.")
@@ -118,6 +145,10 @@ def run_app():
                 return
 
             cheatsheet = summarize_cheatsheet(subject, text_content)
+
+            if not cheatsheet.strip():
+                st.warning("⚠️ Cheat sheet could not be generated: try after some time")
+                return
 
             st.success(f"✅ Cheat sheet generated using {source_label}:")
             lines = cheatsheet.splitlines()
