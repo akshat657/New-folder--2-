@@ -12,7 +12,7 @@ from langchain.prompts import PromptTemplate
 from langchain.chains.summarize import load_summarize_chain
 from langchain_core.documents.base import Document
 from langchain_groq import ChatGroq
-from groq import RateLimitError  # ✅ Added for error handling
+from groq import RateLimitError  # Added for error handling
 
 # — Load Groq API key from .env
 load_dotenv()

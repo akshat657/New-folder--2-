@@ -15,14 +15,16 @@ LLM_MODEL = "llama-3.3-70b-versatile"
 llm = ChatGroq(model=LLM_MODEL, temperature=0.25)  # ✅ Use Groq LLaMA 3
 
 SUBJECT_CATEGORIES = {
-    "Mathematics": "(Math: formulas, theorems, and important topics)",
-    "Physics":     "(Physics: key formulas, laws, definitions)",
-    "Chemistry":   "Chemistry: reactions, formulas, periodic table highlights",
-    "English":     "English (explanatory, key ideas, definitions)",
-    "History":     "History (dates, events, people)",
-    "Biology":     "Biology (terms, processes, definitions)",
-    "Other":       "General (concise summary for revision)",
+    "Mathematics": "Math (formulas, theorems, and important topics)",
+    "Physics": "Physics (key formulas, laws, definitions)",
+    "Chemistry": "Chemistry (reactions, formulas, periodic table highlights)",
+    "English": "English (explanatory, key ideas, definitions)",
+    "History": "History (dates, events, people)",
+    "Biology": "Biology (terms, processes, definitions)",
+    "Computer Science & IT": "Computer Science & IT (concise explanations of concepts, algorithms, key definitions, step-by-step logic when needed) and time complexity if present",
+    "Other": "General (concise summary for revision)",
 }
+
 
 def extract_pdf_text(pdf_files: List[UploadedFile]) -> str:
     output = []
