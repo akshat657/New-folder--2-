@@ -40,7 +40,7 @@ def summarize_cheatsheet(subject: str, content: str) -> str:
     template = f"""
 You are an expert tutor creating a *cheat sheet* for quick revision on *{subject}*.
 
-Use the content below to create a concise, easy-to-read cheat sheet. {SUBJECT_CATEGORIES.get(subject, "")}
+Use the content below to create a concise, 1-page easy-to-read cheat sheet. {SUBJECT_CATEGORIES.get(subject, "")}
 
 - Focus on aligned bullet points with consistent indentation.
 - Avoid numbering or section headings unless necessary.
