@@ -6,7 +6,10 @@ from streamlit.runtime.uploaded_file_manager import UploadedFile
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
-
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, ListFlowable, ListItem
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
+import markdown2  # pip install markdown2
 from langchain_groq import ChatGroq  # ✅ Changed from GoogleGenerativeAI
 import re
 load_dotenv()  # Load GROQ_API_KEY from .env
@@ -76,23 +79,22 @@ Cheat sheet (begin below):
         else:
             st.error(f"❌ Unexpected error: {error_message}")
         return ""
-def generate_pdf(text: str) -> BytesIO:
+def generate_pdf(markdown_text: str) -> BytesIO:
     buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-    text_obj = c.beginText(40, height - 40)
-    text_obj.setFont("Helvetica", 10)
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
 
-    for line in text.splitlines():
-        text_obj.textLine(line)
-        if text_obj.getY() < 40:
-            c.drawText(text_obj)
-            c.showPage()
-            text_obj = c.beginText(40, height - 40)
-            text_obj.setFont("Helvetica", 10)
+    # Convert markdown → HTML → reportlab Paragraph
+    html = markdown2.markdown(markdown_text)
 
-    c.drawText(text_obj)
-    c.save()
+    # Break into lines and convert
+    for line in html.splitlines():
+        if line.strip():
+            story.append(Paragraph(line, styles["Normal"]))
+            story.append(Spacer(1, 6))
+
+    doc.build(story)
     buffer.seek(0)
     return buffer
 def run_app():
