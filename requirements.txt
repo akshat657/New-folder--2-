@@ -12,3 +12,4 @@ google
 groq
 transformers
 langchain_groq
+markdown2
