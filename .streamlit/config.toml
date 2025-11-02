@@ -1,8 +1,0 @@
-[theme]
-primaryColor = "#1E90FF"
-
-[server]
-headless = true
-
-[ui]
-showGitHubIcon = false
