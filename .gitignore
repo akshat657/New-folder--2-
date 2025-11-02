@@ -8,3 +8,4 @@
 # Python cache files
 __pycache__/
 *.py[cod]
+Faiss_index/
