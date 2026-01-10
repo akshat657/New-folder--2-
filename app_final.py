@@ -3,16 +3,29 @@ import cheatsheet_app
 import pdf_qa_app
 import yt_summary_app
 
-st.set_page_config(page_title="AI Study Assistant", layout="centered")
+st.set_page_config(
+    page_title="AI Study Assistant", 
+    page_icon="🧠",
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
 
+# Custom CSS
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap');
 
-        html, body, [class*="css"]  {
+        html, body, [class*="css"] {
             font-family: 'Rubik', sans-serif;
+        }
+       
+        .main {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem;
+        }
+        
+        .stApp {
             background: linear-gradient(to right, #FFDEE9, #B5FFFC);
-            color: #333;
         }
        
         .title {
@@ -21,51 +34,59 @@ st.markdown("""
             color: #4b0082;
             text-align: center;
             margin-bottom: 1rem;
+            text-shadow:  2px 2px 4px rgba(0,0,0,0.1);
         }
-        .sub {
+        
+        .subtitle {
             font-size: 1.2rem;
             color: #444;
             text-align: center;
             margin-bottom: 2rem;
         }
-        .stSelectbox label {
-            font-weight: 600;
-            font-size: 1.1rem;
-            color: #333;
-        }
-        .stButton > button {
-            border-radius: 10px;
-            background: linear-gradient(to right, #ff6a00, #ee0979);
-            color: white;
-            font-weight: 600;
-            padding: 0.7rem 1.5rem;
-            font-size: 1rem;
-            border: none;
-            cursor: pointer;
-        }
-        .stButton > button:hover {
-            background: linear-gradient(to right, #ee0979, #ff6a00);
-        }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<div class='main-card'>", unsafe_allow_html=True)
-
+# Header
 st.markdown("<div class='title'>🧠 Last Minute Prep</div>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>One platform.  Three powerful AI tools for students. </div>", unsafe_allow_html=True)
 
-st.markdown("<div class='sub'>One platform. Three powerful tools.</div>", unsafe_allow_html=True)
+# Tool Selection
+st.markdown("---")
+task = st.selectbox(
+    "📚 Select a tool to use:",
+    [
+        "Cheat Sheet Generator",
+        "PDF Question Answering",
+        "YouTube Summarizer"
+    ],
+    help="Choose the AI tool that best fits your study needs"
+)
 
-task = st.selectbox("Select a task to perform:", ["Cheat Sheet Generator", "PDF Question Answering", "YouTube Summarizer"])
+# Display info about selected tool
+tool_descriptions = {
+    "Cheat Sheet Generator": "📝 Generate concise study guides from lecture PDFs or topics",
+    "PDF Question Answering": "💬 Ask questions about your PDF documents and get instant answers",
+    "YouTube Summarizer": "🎥 Get summaries of educational YouTube videos"
+}
 
+st.info(tool_descriptions[task])
 st.markdown("---")
 
+# Route to appropriate app
 if task == "Cheat Sheet Generator":
     cheatsheet_app.run_app()
 
 elif task == "PDF Question Answering":
     pdf_qa_app.run_app()
 
-elif task == "YouTube Summarizer":
+elif task == "YouTube Summarizer":  
     yt_summary_app.run_app()
 
-st.markdown("</div>", unsafe_allow_html=True)
+# Footer
+st.markdown("---")
+st.markdown(
+    "<div style='text-align: center; color: gray; padding: 1rem;'>"
+    "Built with ❤️ using LangChain, Groq, and Streamlit"
+    "</div>",
+    unsafe_allow_html=True
+)
