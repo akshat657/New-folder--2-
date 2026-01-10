@@ -1,13 +1,13 @@
 import streamlit as st
 from PyPDF2 import PdfReader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
 
 from langchain_groq import ChatGroq
 from langchain_community. embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain. chains.question_answering import load_qa_chain
-from langchain. prompts import PromptTemplate
+from langchain.prompts import PromptTemplate
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -18,9 +18,9 @@ def get_pdf_text(pdf_docs):
     text = ""
     for pdf in pdf_docs:
         pdf_reader = PdfReader(pdf)
-        for page in pdf_reader.pages:
-            content = page.extract_text()
-            if content:  
+        for page in pdf_reader. pages:
+            content = page. extract_text()
+            if content: 
                 text += content
     return text
 
@@ -45,7 +45,7 @@ def get_conversational_chain():
     """Create Q&A chain"""
     prompt_template = """
 Answer the question as detailed as possible from the provided context.  
-If the answer is not in the context, say:   "Answer is not present in the given PDF."
+If the answer is not in the context, say:  "Answer is not present in the given PDF."
 
 Context:  
 {context}
@@ -122,7 +122,7 @@ def run_app():
     
     if st.button("Submit & Process PDFs", use_container_width=True):
         if not pdf_docs:
-            st. warning("Please upload at least one PDF before proceeding.")
+            st.warning("Please upload at least one PDF before proceeding.")
         else:
             with st.spinner("Processing PDFs... "):
                 # Extract text
