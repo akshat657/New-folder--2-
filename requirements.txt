@@ -14,3 +14,4 @@ transformers
 langchain_groq
 markdown2
 sentence-transformers
+langchain-text-splitters
