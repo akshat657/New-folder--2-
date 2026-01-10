@@ -1,13 +1,13 @@
 import streamlit as st
 from PyPDF2 import PdfReader
-from langchain. text_splitter import RecursiveCharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 
 from langchain_groq import ChatGroq
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain. chains. question_answering import load_qa_chain
-from langchain.prompts import PromptTemplate
+from langchain.chains.question_answering import load_qa_chain
+from langchain. prompts import PromptTemplate
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -20,7 +20,7 @@ def get_pdf_text(pdf_docs):
         pdf_reader = PdfReader(pdf)
         for page in pdf_reader.pages:
             content = page.extract_text()
-            if content: 
+            if content:  
                 text += content
     return text
 
@@ -37,7 +37,7 @@ def get_text_chunks(text):
 def get_vector_store(text_chunks):
     """Create and save FAISS vector store with HuggingFace embeddings"""
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
+    vector_store = FAISS. from_texts(text_chunks, embedding=embeddings)
     vector_store.save_local("Faiss_index")
 
 
@@ -45,7 +45,7 @@ def get_conversational_chain():
     """Create Q&A chain"""
     prompt_template = """
 Answer the question as detailed as possible from the provided context.  
-If the answer is not in the context, say:  "Answer is not present in the given PDF."
+If the answer is not in the context, say:   "Answer is not present in the given PDF."
 
 Context:  
 {context}
@@ -144,7 +144,7 @@ def run_app():
     st.markdown("---")
     
     # Question input
-    user_question = st.text_input(
+    user_question = st. text_input(
         "🗣️ Ask a question based on the uploaded PDF content:",
         key="question_input"
     )
