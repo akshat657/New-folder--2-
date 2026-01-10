@@ -4,9 +4,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 
 from langchain_groq import ChatGroq
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community. embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain.chains.question_answering import load_qa_chain
+from langchain. chains.question_answering import load_qa_chain
 from langchain. prompts import PromptTemplate
 
 from dotenv import load_dotenv
@@ -97,7 +97,7 @@ def user_input(user_question):
         st.markdown("### 💡 Answer:")
         st.write(response["output_text"])
         
-    except FileNotFoundError:
+    except FileNotFoundError: 
         st. warning("⚠️ Please upload and process PDFs first.")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
