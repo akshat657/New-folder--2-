@@ -1,15 +1,14 @@
 import streamlit as st
 from PyPDF2 import PdfReader
-import streamlit as st
-from PyPDF2 import PdfReader
-from langchain. text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
 
 from langchain_groq import ChatGroq
-from langchain_community. embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain. chains.question_answering import load_qa_chain
-from langchain.prompts import PromptTemplate
+from langchain.chains.question_answering import load_qa_chain
+from langchain. prompts import PromptTemplate
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -46,7 +45,7 @@ def get_conversational_chain():
     """Create Q&A chain"""
     prompt_template = """
 Answer the question as detailed as possible from the provided context.  
-If the answer is not in the context, say:  "Answer is not present in the given PDF."
+If the answer is not in the context, say:   "Answer is not present in the given PDF."
 
 Context:  
 {context}
@@ -145,7 +144,7 @@ def run_app():
     st.markdown("---")
     
     # Question input
-    user_question = st. text_input(
+    user_question = st.text_input(
         "🗣️ Ask a question based on the uploaded PDF content:",
         key="question_input"
     )
