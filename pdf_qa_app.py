@@ -1,27 +1,23 @@
 import streamlit as st
 from PyPDF2 import PdfReader
-import os
 from dotenv import load_dotenv
 
 from langchain_groq import ChatGroq
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores import InMemoryVectorStore
 
 # ========= LangChain Compatibility Imports =========
 try:
     from langchain.text_splitter import RecursiveCharacterTextSplitter
-except:
+except ImportError:
     from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 try:
     from langchain.chains.question_answering import load_qa_chain
-except:
+except ImportError:
     from langchain.chains import load_qa_chain
 
-try:
-    from langchain.prompts import PromptTemplate
-except:
-    from langchain.prompts.prompt import PromptTemplate
+from langchain.prompts import PromptTemplate
 # ==================================================
 
 load_dotenv()
@@ -50,8 +46,10 @@ def get_vector_store(text_chunks):
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
-    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-    vector_store.save_local("Faiss_index")
+    return InMemoryVectorStore.from_texts(
+        texts=text_chunks,
+        embedding=embeddings
+    )
 
 
 def get_conversational_chain():
@@ -88,41 +86,24 @@ Answer:
 
 
 def user_input(user_question):
-    try:
-        embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
-
-        db = FAISS.load_local(
-            "Faiss_index",
-            embeddings,
-            allow_dangerous_deserialization=True
-        )
-
-        docs = db.similarity_search(user_question)
-        chain = get_conversational_chain()
-
-        response = chain(
-            {"input_documents": docs, "question": user_question},
-            return_only_outputs=True
-        )
-
-        st.markdown("### 💡 Answer:")
-        st.write(response["output_text"])
-
-    except FileNotFoundError:
+    if "vectorstore" not in st.session_state:
         st.warning("⚠️ Please upload and process PDFs first.")
-    except Exception as e:
-        st.error(f"❌ Error: {str(e)}")
+        return
+
+    db = st.session_state.vectorstore
+    docs = db.similarity_search(user_question)
+    chain = get_conversational_chain()
+
+    response = chain(
+        {"input_documents": docs, "question": user_question},
+        return_only_outputs=True
+    )
+
+    st.markdown("### 💡 Answer:")
+    st.write(response["output_text"])
 
 
 def run_app():
-    st.set_page_config(
-        page_title="Chat With Multiple PDFs",
-        page_icon="💬",
-        layout="centered"
-    )
-
     st.header("💬 Chat with Multiple PDFs using LLaMA (Groq)")
 
     pdf_docs = st.file_uploader(
@@ -143,7 +124,7 @@ def run_app():
                     return
 
                 text_chunks = get_text_chunks(raw_text)
-                get_vector_store(text_chunks)
+                st.session_state.vectorstore = get_vector_store(text_chunks)
                 st.success("✅ Done! Ask questions now.")
 
     st.markdown("---")
@@ -152,7 +133,3 @@ def run_app():
 
     if user_question:
         user_input(user_question)
-
-
-if __name__ == "__main__":
-    run_app()
