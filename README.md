@@ -1,128 +1,156 @@
-# 🧠 AI Study Assistant
+# 🧠 Last Minute Prep – AI Study Assistant
 
-A minimal yet powerful multi-tool Streamlit app designed to **supercharge your last-minute exam preparation**. Whether you're cramming the night before or reviewing key concepts quickly — this assistant has your back.
+<div align="center">
 
----
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+![Streamlit](https://img.shields.io/badge/Streamlit-App-red)
+![LangChain](https://img.shields.io/badge/LangChain-LLM-green)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-## 🎯 Ideal For
+**AI-powered study assistant that converts PDFs and YouTube videos into cheat sheets, quizzes, and exam-ready notes using LLMs and vector search.**
 
-> ⚡ **Students needing fast revision**  
-> 📌 **Last-minute concept brushing**  
-> ✍️ **Quick notes & summaries**  
-> 🧠 **Self-questioning from long PDFs**
-
----
-
-## 🚀 Features
-
-- 📚 **Cheat Sheet Generator**: Upload text, and get a compact, clear summary.
-- 📄 **PDF Question Answering**: Ask questions directly from your PDF documents.
-- 📹 **YouTube Summarizer**: Paste a video link and get clean, readable summaries.
+</div>
 
 ---
 
-## 🖼️ Interface Preview
+## 🎯 Overview
 
-![screenshot](preview.png) <!-- Replace this with your actual screenshot file or URL -->
-<img width="1154" height="841" alt="Screenshot 2025-08-04 053413" src="https://github.com/user-attachments/assets/3b7fc038-eed5-4f5c-9dfe-384c4f5ec7d2" />
+**Last Minute Prep** is a multi-tool **Streamlit application** designed for efficient exam preparation.  
+It processes PDFs and YouTube videos using **adaptive LLM strategies** to generate concise, accurate, and comprehensive study material while respecting token limits.
 
----
-
-## 🎨 Tech Stack
-
-- **Frontend**: [Streamlit](https://streamlit.io/)
-- **LLMs**: Google Gemini (via LangChain)
-- **Embeddings & Vector Search**: FAISS + GoogleGenerativeAIEmbeddings
-- **Other Libraries**: PyMuPDF, PyPDF2, LangChain, `dotenv`, etc.
+**Key Idea:** Automatically switches between **Direct / Hybrid / MapReduce** strategies based on content size.
 
 ---
 
-## 📦 Project Structure
+## ✨ Features
 
-```
+### 📚 PDF Study Assistant
+- Cheat sheet generation (formulas, key points, concepts)
+- Interactive quizzes with instant feedback
+- Semantic **PDF Q&A using FAISS**
+- Memory aids, mnemonics & exam question prediction
+- Adaptive processing for large documents (up to ~50 pages)
 
-├── main\_app.py              # Main multipage controller
-├── cheatsheet\_app.py        # Cheat Sheet Generator module
-├── pdf\_qa\_app.py            # PDF QA using LangChain + Gemini
-├── yt\_summary\_app.py        # YouTube transcript summarizer
-├── requirements.txt         # Python dependencies
-├── .streamlit/
-│   └── config.toml          # Streamlit UI configuration
-└── README.md                # Project overview (this file)
-
-````
+### 🎥 YouTube Summarizer
+- MapReduce-based long video summarization
+- Transcript-based summaries (no hallucinations)
+- Hindi → English auto-translation
+- Multiple summary styles (concise, detailed, bullet points)
 
 ---
 
-## 🔧 Setup Instructions
+## 🛠️ Tech Stack
 
-### 1️⃣ Clone the repository
+| Layer | Technologies |
+|-----|-------------|
+| LLM | Groq (LLaMA-3.3-70B), LangChain |
+| Vector DB | FAISS |
+| Embeddings | HuggingFace `all-MiniLM-L6-v2` |
+| Frontend | Streamlit, Custom CSS |
+| Docs | PyPDF2, ReportLab, Markdown2 |
+| APIs | YouTube Transcript API |
 
-```bash
-git clone https://github.com/your-username/ai-study-assistant.git
-cd ai-study-assistant
-````
+---
 
-### 2️⃣ Install dependencies
+## 📁 Project Structure
 
-```bash
+
+
+├── app_final.py # Main router & landing page
+├── cheatsheet_app.py # PDF processing + cheat sheets
+├── pdf_qa_app.py # Semantic PDF Q&A (FAISS)
+├── yt_summary_app.py # YouTube summarizer
+├── requirements.txt
+├── .env # API keys (not committed)
+└── .streamlit/config.toml
+
+
+---
+
+## 🧠 Core Technical Highlights
+
+### 🔹 Adaptive Processing
+```python
+if len(content) <= 15000:
+    strategy = "direct"
+elif len(content) <= 35000:
+    strategy = "hybrid"
+else:
+    strategy = "mapreduce"
+
+🔹 FAISS-based Semantic Search
+vector_store = FAISS.from_texts(chunks, embeddings)
+relevant_chunks = vector_store.similarity_search(query, k=4)
+
+🔹 MapReduce for Long Content
+map_outputs = [llm(chunk) for chunk in chunks]
+final_output = llm.combine(map_outputs)
+
+🔹 Safe LLM Calls
+def safe_llm_call(model, prompt):
+    try:
+        return model.invoke(prompt).content
+    except RateLimitError:
+        return None
+
+🚀 Installation
+git clone https://github.com/akshat657/last-minute-prep.git
+cd last-minute-prep
 pip install -r requirements.txt
-```
+echo "GROQ_API_KEY=your_key_here" > .env
+streamlit run app_final.py
 
-### 3️⃣ Add your Gemini API key in `.env` file
 
-```env
-GOOGLE_API_KEY=your_gemini_api_key
-```
+Free Groq API key: https://console.groq.com
 
-### 4️⃣ Run the app
+📊 Performance Snapshot
+Feature	Time	Tokens
+Small PDF (15 pages)	~10s	~3K
+Large PDF (50 pages)	~60s	~15K
+PDF Q&A	~5s	~2K
+YouTube Summary	~20s	~8K
+🚀 Deployment
 
-```bash
-streamlit run main_app.py
-```
+Streamlit Cloud (Recommended)
 
----
+Push repo to GitHub
 
-## 🌍 Live Demo
+Connect at https://share.streamlit.io
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://your-streamlit-link.com)
+Add GROQ_API_KEY in secrets
 
----
+Deploy
 
-## ✨ Purpose
+(Free tier apps may sleep after inactivity.)
 
-**Why this app?**
-Because exams are scary and time is short.
-This app brings **three AI tools in one place** to help students **prepare smarter, not harder — especially when the clock’s ticking**.
+🤝 Contributing
 
----
+Ideas welcome:
 
-## 🤝 Contributing
+OCR for scanned PDFs
 
-Pull requests are welcome. For major changes, please open an issue first.
+Flashcard generation
 
----
+More LLM providers
 
-## 📄 License
+Multi-document comparison
 
-This project is licensed under the **MIT License**.
+📄 License
 
----
+MIT License
 
-## 👨‍💻 Author
+👨‍💻 Author
 
-**Akshat Khandelwal**
-📧 Email: [akshatkhandelwal004@gmail.com](mailto:akshatkhandelwal004@gmail.com)
-🐙 GitHub: [@akshat657](https://github.com/akshat657)
+Akshat Khandelwal
+GitHub: https://github.com/akshat657
 
-```
+LinkedIn: https://linkedin.com/in/akshat-khandelwal
 
----
+Email: akshatkhandelwal004@gmail.com
 
-Let me know if you'd like:
-- A cool **ASCII banner** at the top?
-- GitHub **badges** (stars, forks, license)?
-- Instructions for deploying to **Streamlit Cloud**?
+<div align="center">
 
-I can add those too.
-```
+Built with Python, Streamlit, LangChain, and FAISS
+Making last-minute exam prep smarter, not harder.
+
+</div> ```
