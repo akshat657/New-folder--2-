@@ -314,7 +314,10 @@ def process_content_mapreduce(subject: str, content: str, feature_type: str, **k
     elif feature_type == "quiz":
         reduce_prompt = f"""
         Generate {kwargs.get('num_questions', 10)} multiple-choice questions for {subject}.
-        
+    
+        CRITICAL: Use ONLY facts from the extracted concepts below. DO NOT invent information.
+        Verify each correct answer against the text before marking it.
+    
         Format EXACTLY as: 
         Q1. [Question]
         A) [Option]
@@ -322,8 +325,8 @@ def process_content_mapreduce(subject: str, content: str, feature_type: str, **k
         C) [Option]
         D) [Option]
         Answer: A
-        
-        Based on these concepts: 
+    
+        Based on these concepts (USE ONLY THESE FACTS): 
         {combined[:18000]}
         """
     elif feature_type == "mnemonics":
@@ -447,19 +450,25 @@ def process_content_direct(subject: str, content: str, feature_type: str, **kwar
     elif feature_type == "quiz":
         prompt = f"""
         Generate {kwargs.get('num_questions', 10)} multiple-choice questions for {subject}.
-        
+    
+        CRITICAL INSTRUCTIONS:
+        1. Use ONLY facts explicitly stated in the content below
+        2. DO NOT make up or assume any information
+        3. Each correct answer MUST be directly verifiable from the text
+        4. Double-check that the marked answer is actually correct
+    
         Format EXACTLY as:
-        Q1. [Question]
-        A) [Option]
-        B) [Option]
-        C) [Option]
-        D) [Option]
+        Q1. [Question based on content]
+        A) [Option from content]
+        B) [Option from content]
+        C) [Option from content]
+        D) [Option from content]
         Answer: A
-        
-        Make questions challenging but fair. 
-        
-        Content: 
+    
+        Content (READ CAREFULLY):
         {content[:15000]}
+    
+        Generate accurate questions with verifiable answers:
         """
     elif feature_type == "mnemonics":
         prompt = f"""
@@ -936,7 +945,7 @@ def run_app():
                         elif score_percentage >= 60:
                             st.info(f"👍 Good job! You scored {correct_count}/{total} ({score_percentage:.1f}%)")
                         else:
-                            st.warning(f"📚 Keep practicing! You scored {correct_count}/{total} ({score_percentage:. 1f}%)")
+                            st.warning(f"📚 Keep practicing! You scored {correct_count}/{total} ({score_percentage:.1f}%)")
                         
                         if st.button("🔄 Take Another Quiz", use_container_width=True):
                             st.session_state.quiz_data = None
