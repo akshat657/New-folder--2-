@@ -41,7 +41,7 @@ load_dotenv()
 
 LLM_MODEL = "llama-3.3-70b-versatile"
 
-# ✅ OPTIMIZED LIMITS
+
 MAX_PAGES_PER_PDF = 50
 CHUNK_SIZE = 5000
 CHUNK_OVERLAP = 500
@@ -513,7 +513,7 @@ def generate_content_with_strategy(subject:  str, content: str, feature_type: st
 
 
 def parse_quiz(quiz_text: str) -> List[Dict]: 
-    """Parse quiz text into structured format"""
+    """Parse quiz text into structured format - more robust"""
     questions = []
     current_question = {}
     
@@ -523,32 +523,41 @@ def parse_quiz(quiz_text: str) -> List[Dict]:
         line = line.strip()
         if not line:
             continue
+        
+        # Match Q1. or Q1: or **Q1.** etc (more flexible)
+        if re.match(r'^[\*]*Q\d+[\.\:\)]\s*[\*]*', line, re.IGNORECASE):
+            if current_question and current_question.get('question'):
+                questions.append(current_question)
             
-        if re.match(r'^Q\d+\.  ', line):
-            if current_question:
-                questions. append(current_question)
+            # Extract question text (remove Q1., Q1:, etc.)
+            question_text = re.sub(r'^[\*]*Q\d+[\.\:\)]\s*[\*]*', '', line, flags=re.IGNORECASE).strip()
             current_question = {
-                'question': re.sub(r'^Q\d+\.\s*', '', line),
+                'question': question_text,
                 'options': {},
                 'answer': ''
             }
-        elif re.match(r'^[A-D]\)', line):
-            option_letter = line[0]
-            option_text = line[3: ].strip()
-            if current_question: 
+        
+        # Match A) or A. or a) etc (more flexible)
+        elif re.match(r'^[A-Da-d][\)\.\:]', line):
+            if current_question:
+                option_letter = line[0].upper()
+                # Extract option text after A) or A. etc
+                option_text = re.sub(r'^[A-Da-d][\)\.\:]\s*', '', line).strip()
                 current_question['options'][option_letter] = option_text
-        elif line.startswith('Answer: ') or line.startswith('**Answer: '):
-            answer_text = re.sub(r'\*\*Answer:\s*|\*\*|Answer:\s*', '', line).strip()
-            answer_match = re.search(r'[A-D]', answer_text)
-            if answer_match and current_question:
-                current_question['answer'] = answer_match.group(0)
+        
+        # Match Answer: A or **Answer: A** or Correct Answer: A
+        elif re.search(r'answer\s*:', line, re.IGNORECASE):
+            if current_question:
+                # Extract just the letter A-D
+                answer_match = re.search(r'[A-D]', line, re.IGNORECASE)
+                if answer_match:
+                    current_question['answer'] = answer_match.group(0).upper()
     
-    if current_question and current_question. get('question'):
+    # Don't forget the last question
+    if current_question and current_question.get('question') and current_question.get('answer'):
         questions.append(current_question)
     
     return questions
-
-
 def user_input_smart(user_question):
     """Smart PDF Q&A with relevant chunk retrieval and error handling"""
     try:
