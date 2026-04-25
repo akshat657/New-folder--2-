@@ -44,8 +44,8 @@ LLM_MODEL = "llama-3.3-70b-versatile"
 
 
 MAX_PAGES_PER_PDF = 50
-CHUNK_SIZE = 5000
-CHUNK_OVERLAP = 500
+CHUNK_SIZE = 1500  # Reduced from 5000 to fit embedding model (512 tokens ≈ 2000 chars)
+CHUNK_OVERLAP = 200  # Proportionally reduced
 TOP_K_CHUNKS = 4
 
 # Content thresholds for different strategies
@@ -110,10 +110,17 @@ def get_vector_store(text_chunks):
     """Create and save vector store"""
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2",
-        model_kwargs={'device':  'cpu'},
-        encode_kwargs={'normalize_embeddings': True}
+        model_kwargs={'device': 'cpu'},
+        encode_kwargs={
+            'normalize_embeddings': True,
+            'batch_size': 32,
+            'show_progress_bar': False
+        }
     )
-    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
+
+    # Ensure chunks aren't too long for the model (max 512 tokens ≈ 2000 chars)
+    truncated_chunks = [chunk[:2000] if len(chunk) > 2000 else chunk for chunk in text_chunks]
+    vector_store = FAISS.from_texts(truncated_chunks, embedding=embeddings)
     vector_store.save_local("Faiss_index")
     return vector_store
 
@@ -534,7 +541,11 @@ def user_input_smart(user_question):
         embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2",
             model_kwargs={'device': 'cpu'},
-            encode_kwargs={'normalize_embeddings': True}
+            encode_kwargs={
+                'normalize_embeddings': True,
+                'batch_size': 32,
+                'show_progress_bar': False
+            }
         )
 
         db = FAISS.load_local(
