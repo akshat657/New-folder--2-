@@ -7,7 +7,7 @@ numpy>=1.25,<2.0
 
 reportlab==4.4.3
 markdown2==2.5.4
-youtube-transcript-api==1.2.2
+requests==2.32.3
 
 groq==0.30.0
 sentence-transformers==2.7.0

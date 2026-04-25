@@ -14,6 +14,7 @@ from langchain_groq import ChatGroq
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from groq import RateLimitError  # For proper error handling
+from api_key_manager import get_groq_manager
 
 # ========= LangChain Compatibility =========
 try:
@@ -68,54 +69,7 @@ SUBJECT_CATEGORIES = {
 }
 
 
-def safe_llm_call(model, prompt, operation_name="Processing"):
-    """
-    Wrapper for LLM calls with proper error handling
-    """
-    try:
-        response = model. invoke(prompt)
-        return response. content. strip()
-    except RateLimitError as e:
-        # Parse the wait time from error message
-        error_msg = str(e)
-        wait_time_match = re.search(r'try again in ([\d]+[mh][\d]+\.[\d]+s)', error_msg)
-        
-        if wait_time_match: 
-            wait_time = wait_time_match.group(1)
-            st.error(f"""
-            ⏰ **Rate Limit Reached**
-            
-            You've used up your daily token limit for Groq API.
-            
-            **Please try again in: {wait_time}**
-            
-            💡 **Tips to avoid limits:**
-            - Use "Quick Mode" for large PDFs
-            - Reduce number of pages/questions
-            - The limit resets every 24 hours
-            
-            🔗 Need more?  [Upgrade to Dev Tier](https://console.groq.com/settings/billing)
-            """)
-        else:
-            st.error(f"""
-            ⏰ **Rate Limit Reached**
-            
-            You've used up your daily token limit (100,000 tokens per day).
-            
-            **Please try again later** (usually resets in a few hours)
-            
-            💡 **Tips:**
-            - Use "Quick Mode" for faster processing
-            - Reduce number of pages or questions
-            - Wait for the limit to reset
-            
-            🔗 [Upgrade for more tokens](https://console.groq.com/settings/billing)
-            """)
-        
-        return None
-    except Exception as e:
-        st.error(f"❌ {operation_name} failed: {str(e)}")
-        return None
+# safe_llm_call() is now provided by api_key_manager.GroqKeyManager
 
 
 def extract_pdf_text(pdf_files: List) -> str:
@@ -167,18 +121,18 @@ def get_vector_store(text_chunks):
 def get_conversational_chain():
     """Enhanced Q&A chain"""
     prompt_template = """
-You are a helpful study assistant. Answer the question based on the provided context. 
+You are a helpful study assistant. Answer the question based on the provided context.
 
 Instructions:
 - Use ONLY the information from the context below
 - Be specific and detailed
-- If the answer is not in the context, clearly state:  "I cannot find this information in the provided PDF."
+- If the answer is not in the context, clearly state: "I cannot find this information in the provided PDF."
 - Quote relevant parts when possible
 
 Context:
 {context}
 
-Question: 
+Question:
 {question}
 
 Detailed Answer:
@@ -189,7 +143,9 @@ Detailed Answer:
         input_variables=["context", "question"]
     )
 
-    model = ChatGroq(
+    # Use key manager
+    groq_manager = get_groq_manager()
+    model = groq_manager.create_llm(
         model=LLM_MODEL,
         temperature=0.3,
         max_tokens=1024
@@ -205,17 +161,19 @@ Detailed Answer:
 
 def process_content_mapreduce(subject: str, content: str, feature_type: str, **kwargs) -> str:
     """MapReduce strategy for large PDFs with error handling"""
-    
+
     if feature_type == "cheatsheet":
         chunk_size = CHEATSHEET_MAPREDUCE_CHUNK
     else:
         chunk_size = 8000
-        
+
     chunks = [content[i:i+chunk_size] for i in range(0, len(content), chunk_size)]
-    
+
     st.info(f"📚 Processing {len(chunks)} sections with MapReduce...")
-    
-    model = ChatGroq(model=LLM_MODEL, temperature=0.2)
+
+    # Use key manager
+    groq_manager = get_groq_manager()
+    model = groq_manager.create_llm(model=LLM_MODEL, temperature=0.2)
     
     # MAP Phase
     chunk_summaries = []
@@ -264,13 +222,13 @@ def process_content_mapreduce(subject: str, content: str, feature_type: str, **k
             {chunk}
             """
         
-        result = safe_llm_call(model, map_prompt, f"Processing section {i+1}")
-        if result is None: 
+        result = groq_manager.safe_llm_call(model, map_prompt, f"Processing section {i+1}")
+        if result is None:
             progress_bar.empty()
             progress_text.empty()
             return ""
-        
-        chunk_summaries. append(result)
+
+        chunk_summaries.append(result)
         progress_bar.progress((i + 1) / len(chunks))
         time.sleep(0.1)
     
@@ -346,7 +304,7 @@ def process_content_mapreduce(subject: str, content: str, feature_type: str, **k
         {combined[:18000]}
         """
     
-    final_result = safe_llm_call(model, reduce_prompt, "Creating final output")
+    final_result = groq_manager.safe_llm_call(model, reduce_prompt, "Creating final output")
     return final_result if final_result else ""
 
 
@@ -392,7 +350,10 @@ def process_content_hybrid(subject: str, content: str, feature_type: str, **kwar
 
 def process_content_direct(subject: str, content: str, feature_type: str, **kwargs) -> str:
     """Direct processing for small PDFs with error handling"""
-    model = ChatGroq(model=LLM_MODEL, temperature=0.2)
+
+    # Use key manager
+    groq_manager = get_groq_manager()
+    model = groq_manager.create_llm(model=LLM_MODEL, temperature=0.2)
     
     if feature_type == "cheatsheet": 
         prompt = f"""
@@ -487,7 +448,7 @@ def process_content_direct(subject: str, content: str, feature_type: str, **kwar
         {content[:15000]}
         """
     
-    result = safe_llm_call(model, prompt, f"Generating {feature_type}")
+    result = groq_manager.safe_llm_call(model, prompt, f"Generating {feature_type}")
     return result if result else ""
 
 

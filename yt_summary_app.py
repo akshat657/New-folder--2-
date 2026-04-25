@@ -5,11 +5,8 @@ from typing import List
 from urllib.parse import urlparse, parse_qs
 
 from dotenv import load_dotenv
-from youtube_transcript_api import (
-    YouTubeTranscriptApi,
-    TranscriptsDisabled,
-    NoTranscriptFound,
-)
+from youtube_api import get_youtube_api
+from api_key_manager import get_groq_manager
 
 from langchain. text_splitter import RecursiveCharacterTextSplitter
 from langchain. prompts import PromptTemplate
@@ -19,10 +16,8 @@ from langchain_groq import ChatGroq
 from groq import RateLimitError
 
 load_dotenv()
-if not os.getenv("GROQ_API_KEY"):
-    raise ValueError("Missing GROQ_API_KEY environment variable")
 
-
+# Prompt templates (moved from global scope)
 map_prompt = PromptTemplate(
     input_variables=["text"],
     template=(
@@ -35,20 +30,6 @@ map_prompt = PromptTemplate(
 combine_prompt = PromptTemplate(
     input_variables=["text"],
     template="📚 Now combine all these bullet lists into one coherent summary:\n\n{text}",
-)
-
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
-    temperature=0.25,
-    max_retries=2,
-)
-
-summarizer = load_summarize_chain(
-    llm=llm,
-    chain_type="map_reduce",
-    map_prompt=map_prompt,
-    combine_prompt=combine_prompt,
-    verbose=False,
 )
 
 
@@ -78,28 +59,19 @@ def extract_video_id(url_or_id: str) -> str | None:
     return None
 
 
-def extract_transcript(url:  str, languages: List[str] = ["en", "hi"]) -> str:
+def extract_transcript(url: str, languages: List[str] = ["en", "hi"]) -> str:
     vid = extract_video_id(url)
     if not vid:
         st.error("❌ Could not parse a valid YouTube video ID.")
         return ""
 
     try:
-        fetched = YouTubeTranscriptApi().fetch(
-            video_id=vid,
-            languages=languages,
-        )
-    except TranscriptsDisabled: 
-        st.error("🎙️ Captions disabled or unavailable for this video.")
-        return ""
-    except NoTranscriptFound: 
-        st.error("❓ Transcript not found for requested languages.")
-        return ""
+        youtube_api = get_youtube_api()
+        transcript = youtube_api.fetch_transcript(vid, languages)
+        return transcript
     except Exception as e:
-        st.error(f"Unexpected error fetching transcript: {e}")
+        st.error(f"❌ Error fetching transcript: {str(e)}")
         return ""
-
-    return " ".join(snippet. text. strip() for snippet in fetched)
 
 
 def summarize_transcript(transcript: str) -> str:
@@ -110,24 +82,32 @@ def summarize_transcript(transcript: str) -> str:
 
     docs = [
         Document(page_content=chunk)
-        for chunk in splitter. split_text(transcript)
+        for chunk in splitter.split_text(transcript)
     ]
 
     try:
-        result = summarizer. invoke({"input_documents": docs})
-        return result["output_text"]. strip()
-
-    except RateLimitError as e:
-        st.error(
-            "❌ Rate limit exceeded:  You've used up today's 100,000 token quota for Groq.  "
-            "Please try again later."
+        # Use key manager
+        groq_manager = get_groq_manager()
+        llm = groq_manager.create_llm(
+            model="llama-3.3-70b-versatile",
+            temperature=0.25,
+            max_retries=2
         )
-        print("Groq RateLimitError:", e)
-        return ""
+
+        summarizer = load_summarize_chain(
+            llm=llm,
+            chain_type="map_reduce",
+            map_prompt=map_prompt,
+            combine_prompt=combine_prompt,
+            verbose=False,
+        )
+
+        result = summarizer.invoke({"input_documents": docs})
+        return result["output_text"].strip()
 
     except Exception as e:
-        st.error(f"Unexpected error during summarization: {e}")
-        print("Unexpected summarization error:", e)
+        st.error(f"❌ Error during summarization: {str(e)}")
+        print("Summarization error:", e)
         return ""
 
 
@@ -143,23 +123,23 @@ def create_notes_from_transcript(transcript: str, note_type: str, num_pages: int
 Create {num_pages}-page study notes from this video transcript.
 Style: {style_instruction}
 Include main topics, key concepts, and important points.
-Make it easy to review for exams. 
+Make it easy to review for exams.
 
 Transcript:
-{transcript[: 10000]}
+{transcript[:10000]}
 """
 
-    model = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.25)
-    
-    try:
-        response = model.invoke(prompt)
-        return str(response.content).strip()
-    except RateLimitError: 
-        st.error("❌ Rate limit exceeded. Try again later.")
-        return ""
-    except Exception as e:
-        st.error(f"Error creating notes: {e}")
-        return ""
+    # Use key manager for automatic rotation
+    groq_manager = get_groq_manager()
+    model = groq_manager.create_llm(model="llama-3.3-70b-versatile", temperature=0.25)
+
+    response = groq_manager.safe_llm_call(
+        model=model,
+        prompt=prompt,
+        operation_name="Creating notes"
+    )
+
+    return response if response else ""
 
 
 def run_app():

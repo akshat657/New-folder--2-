@@ -221,14 +221,22 @@ with col2:
 st.markdown("---")
 st.markdown("<div class='section-header'>🚀 Pick Your Tool</div>", unsafe_allow_html=True)
 
-task = st.selectbox(
+task_options = [
+    "Study Materials (PDFs & Topics)",
+    "YouTube Summarizer"
+]
+
+task_selection = st.selectbox(
     "What do you need right now?",
-    [
-        "Study Materials (PDFs & Topics)",
-        "YouTube Summarizer"
-    ],
+    task_options,
     help="Choose wisely, young padawan 🧙‍♂️"
 )
+
+# Normalize to string value (handle both int index and string returns)
+if isinstance(task_selection, int):
+    task = task_options[task_selection]
+else:
+    task = task_selection
 
 # Display info about selected tool
 tool_descriptions = {
