@@ -72,26 +72,35 @@ SUBJECT_CATEGORIES = {
 # safe_llm_call() is now provided by api_key_manager.GroqKeyManager
 
 
-def extract_pdf_text(pdf_files: List) -> str:
-    """Extract text from PDF files with page limit"""
+@st.cache_data(show_spinner=False)
+def extract_pdf_text_cached(pdf_bytes_list, pdf_names_list) -> str:
+    """Extract text from PDF files with page limit - cached version"""
     output = []
     total_pages_read = 0
-    
-    for upload in pdf_files:
-        reader = PdfReader(upload)
+
+    for pdf_bytes, pdf_name in zip(pdf_bytes_list, pdf_names_list):
+        reader = PdfReader(BytesIO(pdf_bytes))
         total_pages = len(reader.pages)
         pages_to_read = min(total_pages, MAX_PAGES_PER_PDF)
-        
-        st.info(f"📄 {upload.name}:  Reading {pages_to_read} of {total_pages} pages")
-        
-        for page_num, page in enumerate(reader.pages[: pages_to_read]):
+
+        st.info(f"📄 {pdf_name}: Reading {pages_to_read} of {total_pages} pages")
+
+        for page in reader.pages[:pages_to_read]:
             text = page.extract_text()
             if text:
                 output.append(text)
             total_pages_read += 1
-    
+
     st.success(f"✅ Total pages processed: {total_pages_read}")
     return "\n\n".join(output)
+
+
+def extract_pdf_text(pdf_files: List) -> str:
+    """Extract text from PDF files - wrapper around cached function"""
+    # Convert file objects to bytes for caching
+    pdf_bytes_list = [pdf.getvalue() for pdf in pdf_files]
+    pdf_names_list = [pdf.name for pdf in pdf_files]
+    return extract_pdf_text_cached(tuple(pdf_bytes_list), tuple(pdf_names_list))
 
 
 def get_text_chunks(text):
@@ -113,9 +122,9 @@ def get_vector_store(text_chunks):
         model_kwargs={'device': 'cpu'},
         encode_kwargs={
             'normalize_embeddings': True,
-            'batch_size': 32,
-            'show_progress_bar': False
-        }
+            'batch_size': 32
+        },
+        show_progress=False  # Separate parameter, not in encode_kwargs
     )
 
     # Ensure chunks aren't too long for the model (max 512 tokens ≈ 2000 chars)
@@ -459,33 +468,47 @@ def process_content_direct(subject: str, content: str, feature_type: str, **kwar
     return result if result else ""
 
 
-def generate_content_with_strategy(subject:  str, content: str, feature_type: str, strategy: str, **kwargs) -> str:
+def generate_content_with_strategy(subject: str, content: str, feature_type: str, strategy: str, **kwargs) -> str:
     """Generate content with pre-selected strategy and error handling"""
+
+    # Create cache key based on content hash, feature type, strategy, and params
+    import hashlib
+    content_hash = hashlib.md5(content.encode()).hexdigest()[:8]
+    cache_key = f"{feature_type}_{strategy}_{content_hash}_{kwargs.get('num_pages', '')}_{kwargs.get('num_questions', '')}"
+
+    # Check cache first
+    if cache_key in st.session_state.cached_results:
+        st.success("✨ Using cached result (instant!)")
+        return st.session_state.cached_results[cache_key]
+
     result = ""
-    
+
     if strategy == "direct":
         st.success("📄 Small PDF - Processing directly (fastest)")
         result = process_content_direct(subject, content, feature_type, **kwargs)
-    
-    elif strategy == "hybrid": 
+
+    elif strategy == "hybrid":
         st.info("📊 Medium PDF - Using smart sampling strategy")
         result = process_content_hybrid(subject, content, feature_type, **kwargs)
-    
+
     elif strategy == "quick":
-        st.info("⚡ Quick Mode:  Using first sections for fast processing")
+        st.info("⚡ Quick Mode: Using first sections for fast processing")
         quick_content = content[:SMALL_PDF_THRESHOLD]
         result = process_content_direct(subject, quick_content, feature_type, **kwargs)
-    
+
     elif strategy == "complete":
         st.info("🔄 Complete Mode: Processing entire PDF with MapReduce")
         result = process_content_mapreduce(subject, content, feature_type, **kwargs)
-    
+
     else:
         result = process_content_direct(subject, content, feature_type, **kwargs)
-    
+
     if not result:
-        st.warning("⚠️ Operation cancelled due to rate limit.  Please try again later.")
-    
+        st.warning("⚠️ Operation cancelled due to rate limit. Please try again later.")
+    else:
+        # Cache the successful result
+        st.session_state.cached_results[cache_key] = result
+
     return result if result else ""
 
 
@@ -543,9 +566,9 @@ def user_input_smart(user_question):
             model_kwargs={'device': 'cpu'},
             encode_kwargs={
                 'normalize_embeddings': True,
-                'batch_size': 32,
-                'show_progress_bar': False
-            }
+                'batch_size': 32
+            },
+            show_progress=False  # Separate parameter, not in encode_kwargs
         )
 
         db = FAISS.load_local(
@@ -565,37 +588,56 @@ def user_input_smart(user_question):
         total_chars = sum(len(doc.page_content) for doc in docs)
         st.info(f"📊 Analyzing {total_chars:,} characters from {len(docs)} relevant sections")
         
-        chain = get_conversational_chain()
-        
-        try:
-            response = chain(
-                {"input_documents": docs, "question": user_question},
-                return_only_outputs=True
-            )
+        # Use key manager with manual retry for LangChain chains
+        groq_manager = get_groq_manager()
+        max_attempts = len(groq_manager.keys)
+        attempts = 0
 
-            st.markdown("### 💡 Answer:")
-            st.write(response["output_text"])
-            
-            if "cannot find" in response["output_text"]. lower():
-                st.warning("⚠️ Answer might not be in the PDF")
-            else:
-                st.success("✅ Answer found in PDF content")
-                
-        except RateLimitError as e:
-            error_msg = str(e)
-            wait_time_match = re.search(r'try again in ([\d]+[mh][\d]+\. [\d]+s)', error_msg)
-            
-            if wait_time_match: 
-                wait_time = wait_time_match.group(1)
-                st.error(f"""
-                ⏰ **Rate Limit Reached**
-                
-                Please try again in:  **{wait_time}**
-                
-                💡 The Groq API has a daily limit of 100,000 tokens. 
-                """)
-            else:
-                st.error("⏰ **Rate Limit Reached** - Please try again later (usually resets in a few hours)")
+        while attempts < max_attempts:
+            try:
+                chain = get_conversational_chain()
+
+                response = chain(
+                    {"input_documents": docs, "question": user_question},
+                    return_only_outputs=True
+                )
+
+                st.markdown("### 💡 Answer:")
+                st.write(response["output_text"])
+
+                if "cannot find" in response["output_text"].lower():
+                    st.warning("⚠️ Answer might not be in the PDF")
+                else:
+                    st.success("✅ Answer found in PDF content")
+
+                break  # Success, exit retry loop
+
+            except RateLimitError as e:
+                attempts += 1
+
+                if attempts >= max_attempts:
+                    # All keys exhausted
+                    error_msg = str(e)
+                    wait_time_match = re.search(r'try again in ([\d]+[mh][\d]+\.[\d]+s)', error_msg)
+
+                    if wait_time_match:
+                        wait_time = wait_time_match.group(1)
+                        st.error(f"""
+⏰ **All API Keys Rate Limited**
+
+All {len(groq_manager.keys)} Groq API keys have reached their rate limit.
+
+Please try again in: **{wait_time}**
+
+🔗 [Upgrade to Dev Tier](https://console.groq.com/settings/billing)
+                        """)
+                    else:
+                        st.error("⏰ **All API Keys Rate Limited** - Please try again later")
+                    break
+
+                # Rotate to next key and retry
+                groq_manager.rotate_key()
+                st.warning(f"🔄 Rate limit hit. Trying backup key {attempts + 1}/{max_attempts}...")
 
     except FileNotFoundError:
         st. warning("⚠️ Please upload and process PDFs first.")
@@ -639,6 +681,13 @@ def run_app():
         - 🟡 **Medium PDFs:** Smart sampling (balanced)
         - 🔴 **Large PDFs:** Choose Quick or Complete mode
         """)
+        st.markdown("---")
+        num_cached = len(st.session_state.get('cached_results', {}))
+        st.write(f"📦 **Cached Results:** {num_cached} items")
+        if num_cached > 0:
+            if st.button("🗑️ Clear Cache", help="Clear all cached results to generate fresh content"):
+                st.session_state.cached_results = {}
+                st.rerun()
 
     # Initialize session state
     if 'selected_action' not in st.session_state:
@@ -651,6 +700,12 @@ def run_app():
         st.session_state.user_answers = {}
     if 'quiz_submitted' not in st.session_state:
         st.session_state.quiz_submitted = False
+    if 'extracted_content' not in st.session_state:
+        st.session_state.extracted_content = None
+    if 'last_pdf_names' not in st.session_state:
+        st.session_state.last_pdf_names = None
+    if 'cached_results' not in st.session_state:
+        st.session_state.cached_results = {}  # Cache results by feature type and params
 
     # Input method selection
     input_mode = st.radio("Choose input method:", ["📄 Upload PDF", "💭 Enter Topic"], horizontal=True)
@@ -724,16 +779,28 @@ def run_app():
     # Validate inputs
     has_valid_input = False
     content = ""
-    
+
     if input_mode == "📄 Upload PDF" and pdf_docs:
         has_valid_input = True
-        with st.spinner("📖 Reading PDF..."):
-            content = extract_pdf_text(pdf_docs)
+
+        # Check if PDFs have changed
+        current_pdf_names = tuple([pdf.name for pdf in pdf_docs])
+        if st.session_state.last_pdf_names != current_pdf_names:
+            # PDFs changed, re-extract
+            with st.spinner("📖 Reading PDF..."):
+                content = extract_pdf_text(pdf_docs)
+                st.session_state.extracted_content = content
+                st.session_state.last_pdf_names = current_pdf_names
+        else:
+            # Use cached content
+            content = st.session_state.extracted_content
+            st.info("📄 Using previously loaded PDF")
+
         if not subject:
             subject = "General Study Material"
     elif input_mode == "💭 Enter Topic" and topic:
         has_valid_input = True
-        content = f"Create materials on:  {topic}"
+        content = f"Create materials on: {topic}"
         if not subject:
             subject = "Other"
 

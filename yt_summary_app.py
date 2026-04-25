@@ -85,30 +85,57 @@ def summarize_transcript(transcript: str) -> str:
         for chunk in splitter.split_text(transcript)
     ]
 
-    try:
-        # Use key manager
-        groq_manager = get_groq_manager()
-        llm = groq_manager.create_llm(
-            model="llama-3.3-70b-versatile",
-            temperature=0.25,
-            max_retries=2
-        )
+    # Use key manager with manual retry for LangChain chains
+    groq_manager = get_groq_manager()
+    max_attempts = len(groq_manager.keys)
+    attempts = 0
 
-        summarizer = load_summarize_chain(
-            llm=llm,
-            chain_type="map_reduce",
-            map_prompt=map_prompt,
-            combine_prompt=combine_prompt,
-            verbose=False,
-        )
+    while attempts < max_attempts:
+        try:
+            llm = groq_manager.create_llm(
+                model="llama-3.3-70b-versatile",
+                temperature=0.25,
+                max_retries=2
+            )
 
-        result = summarizer.invoke({"input_documents": docs})
-        return result["output_text"].strip()
+            summarizer = load_summarize_chain(
+                llm=llm,
+                chain_type="map_reduce",
+                map_prompt=map_prompt,
+                combine_prompt=combine_prompt,
+                verbose=False,
+            )
 
-    except Exception as e:
-        st.error(f"❌ Error during summarization: {str(e)}")
-        print("Summarization error:", e)
-        return ""
+            result = summarizer.invoke({"input_documents": docs})
+            return result["output_text"].strip()
+
+        except RateLimitError as e:
+            attempts += 1
+
+            if attempts >= max_attempts:
+                # All keys exhausted
+                error_msg = str(e)
+                st.error(f"""
+⏰ **All API Keys Rate Limited**
+
+All {len(groq_manager.keys)} Groq API keys have reached their rate limit.
+
+Please try again later (limits reset every 24 hours).
+
+🔗 [Upgrade to Dev Tier](https://console.groq.com/settings/billing)
+                """)
+                return ""
+
+            # Rotate to next key and retry
+            groq_manager.rotate_key()
+            st.warning(f"🔄 Rate limit hit. Trying backup key {attempts + 1}/{max_attempts}...")
+
+        except Exception as e:
+            st.error(f"❌ Error during summarization: {str(e)}")
+            print("Summarization error:", e)
+            return ""
+
+    return ""
 
 
 def create_notes_from_transcript(transcript: str, note_type: str, num_pages: int) -> str:
